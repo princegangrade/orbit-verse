@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { History } from 'lucide-react';
-import Welcome from './components/Welcome';
-import PromptPage from './components/PromptPage';
-import ProgressView from './components/ProgressView';
-import ResultsView from './components/ResultsView';
-import HistorySidebar from './components/HistorySidebar';
+import Welcome from './components/Welcome.tsx';
+import PromptPage from './components/PromptPage.tsx';
+import ProgressView from './components/ProgressView.tsx';
+import ResultsView from './components/ResultsView.tsx';
+import HistorySidebar from './components/HistorySidebar.tsx';
 
 type View = 'welcome' | 'prompt' | 'progress' | 'results';
 
