@@ -1,202 +1,160 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Terminal, Loader2, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { generateProject } from '../lib/gemini';
+import AgentTerminal from './AgentTerminal';
+
+import { User } from '@supabase/supabase-js';
 
 interface ProgressViewProps {
   prompt: string;
+  user: User;
   onComplete: (orbitId: string) => void;
 }
 
-interface Step {
-  id: number;
-  label: string;
-  status: 'pending' | 'active' | 'completed';
-}
+export default function ProgressView({ prompt, user, onComplete }: ProgressViewProps) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const [status, setStatus] = useState('Initializing Agent...');
+  const [error, setError] = useState<string | null>(null);
+  const generatedRef = useRef<boolean>(false);
 
-interface LogEntry {
-  timestamp: string;
-  message: string;
-  type: 'info' | 'success' | 'error';
-}
-
-export default function ProgressView({ prompt, onComplete }: ProgressViewProps) {
-  const [steps, setSteps] = useState<Step[]>([
-    { id: 1, label: 'Classifying', status: 'active' },
-    { id: 2, label: 'Planning tools', status: 'pending' },
-    { id: 3, label: 'Generating artifacts', status: 'pending' },
-    { id: 4, label: 'Packaging', status: 'pending' },
-    { id: 5, label: 'Done', status: 'pending' },
-  ]);
-
-  const [logs, setLogs] = useState<LogEntry[]>([
-    {
-      timestamp: new Date().toLocaleTimeString(),
-      message: `Analyzing prompt: "${prompt.substring(0, 60)}${prompt.length > 60 ? '...' : ''}"`,
-      type: 'info',
-    },
-  ]);
+  const addLog = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
+  };
 
   useEffect(() => {
-    const progressSimulation = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      addLog('Detected archetype: E-commerce Platform', 'success');
-      completeStep(1);
-      activateStep(2);
+    if (generatedRef.current) return;
+    generatedRef.current = true;
 
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      addLog('Selected tools: React, Node.js, PostgreSQL, Docker, GitHub Actions', 'info');
-      completeStep(2);
-      activateStep(3);
+    const runGeneration = async () => {
+      try {
+        addLog('🚀 Starting Gemini 2.5 Agent...');
+        setStatus('Connecting to Gemini...');
 
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      addLog('Generating Dockerfile...', 'info');
+        // 1. Create initial record
+        if (!user) throw new Error('No user found');
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      addLog('Creating CI workflow configuration...', 'info');
+        const { data: orbit, error: createError } = await supabase
+          .from('orbits')
+          .insert({
+            user_id: user.id,
+            prompt,
+            status: 'processing',
+            tools: ['gemini-2.5', 'react', 'tailwindcss'],
+            artifacts: {}
+          })
+          .select()
+          .single();
 
-      await new Promise((resolve) => setTimeout(resolve, 900));
-      addLog('Scaffolding application structure...', 'info');
+        if (createError) throw createError;
+        if (!orbit) throw new Error('Failed to create orbit');
 
-      await new Promise((resolve) => setTimeout(resolve, 1100));
-      addLog('Generating README and documentation...', 'info');
+        addLog(`✅ Orbit created: ${orbit.id}`);
+        setStatus('Generating Project Structure...');
 
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      addLog('Adding monitoring and observability stubs...', 'info');
-      completeStep(3);
-      activateStep(4);
+        // 2. Call Gemini API
+        addLog('🤖 Sending prompt to Gemini...');
+        addLog('⏳ Analyzing requirements...');
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      addLog('Packaging artifacts...', 'info');
+        // Simulate some "thinking" logs while waiting for the stream
+        const thinkingInterval = setInterval(() => {
+          const thoughts = [
+            '🔍 Reviewing architectural patterns...',
+            '📦 Selecting optimal dependencies...',
+            '🎨 Designing UI component hierarchy...',
+            '🛡️ Configuring security rules...',
+            '⚡ Optimizing build configuration...'
+          ];
+          const randomThought = thoughts[Math.floor(Math.random() * thoughts.length)];
+          addLog(randomThought);
+        }, 2500);
 
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      addLog('Compressing files into downloadable archive...', 'info');
-      completeStep(4);
-      activateStep(5);
+        const result = await generateProject(prompt, (log) => {
+          clearInterval(thinkingInterval); // Stop thinking logs once we get real data
+          addLog(log);
+        });
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      addLog('Orbit generated successfully!', 'success');
-      completeStep(5);
+        clearInterval(thinkingInterval);
+        addLog('✨ Generation complete! Parsing files...');
+        setStatus('Finalizing...');
 
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      onComplete('orbit-' + Date.now());
+        // 3. Save results
+        const { error: updateError } = await supabase
+          .from('orbits')
+          .update({
+            status: 'completed',
+            artifacts: {
+              files: result.files,
+              explanation: result.explanation
+            },
+            archetype: 'React Application'
+          })
+          .eq('id', orbit.id);
+
+        if (updateError) throw updateError;
+
+        addLog('💾 Project saved to database.');
+        setStatus('Done!');
+
+        setTimeout(() => {
+          onComplete(orbit.id);
+        }, 2000);
+
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message);
+        addLog(`❌ Error: ${err.message}`);
+        setStatus('Failed');
+      }
     };
 
-    progressSimulation();
+    runGeneration();
   }, [prompt, onComplete]);
 
-  const addLog = (message: string, type: LogEntry['type']) => {
-    setLogs((prev) => [
-      ...prev,
-      {
-        timestamp: new Date().toLocaleTimeString(),
-        message,
-        type,
-      },
-    ]);
-  };
-
-  const completeStep = (stepId: number) => {
-    setSteps((prev) =>
-      prev.map((step) =>
-        step.id === stepId ? { ...step, status: 'completed' } : step
-      )
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex items-start gap-4">
+          <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+          <div>
+            <h3 className="text-lg font-semibold text-red-900 mb-2">Generation Failed</h3>
+            <p className="text-red-700">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+        <div className="mt-6 h-96">
+          <AgentTerminal logs={logs} />
+        </div>
+      </div>
     );
-  };
-
-  const activateStep = (stepId: number) => {
-    setSteps((prev) =>
-      prev.map((step) =>
-        step.id === stepId ? { ...step, status: 'active' } : step
-      )
-    );
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 px-6 py-4">
-        <h1 className="text-xl font-semibold text-slate-900">
-          Generating Your Orbit
-        </h1>
-      </header>
-
-      <div className="max-w-5xl mx-auto p-6">
-        <div className="bg-white rounded-2xl shadow-sm p-8 mb-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-6">
-            Progress
-          </h2>
-
-          <div className="flex items-center justify-between mb-8">
-            {steps.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-all ${
-                      step.status === 'completed'
-                        ? 'bg-green-500 border-green-500'
-                        : step.status === 'active'
-                        ? 'bg-blue-500 border-blue-500'
-                        : 'bg-white border-slate-300'
-                    }`}
-                  >
-                    {step.status === 'completed' ? (
-                      <CheckCircle2 className="w-6 h-6 text-white" />
-                    ) : step.status === 'active' ? (
-                      <Loader2 className="w-6 h-6 text-white animate-spin" />
-                    ) : (
-                      <Circle className="w-6 h-6 text-slate-300" />
-                    )}
-                  </div>
-                  <span
-                    className={`mt-2 text-sm font-medium ${
-                      step.status === 'completed'
-                        ? 'text-green-600'
-                        : step.status === 'active'
-                        ? 'text-blue-600'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                </div>
-
-                {index < steps.length - 1 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-2 transition-colors ${
-                      steps[index + 1].status === 'completed' ||
-                      steps[index + 1].status === 'active'
-                        ? 'bg-blue-500'
-                        : 'bg-slate-300'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+            <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">{status}</h2>
+            <p className="text-slate-500">Powered by Gemini 2.5</p>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">
-            Live Logs
-          </h2>
-
-          <div className="bg-slate-900 rounded-xl p-4 h-80 overflow-y-auto font-mono text-sm">
-            {logs.map((log, index) => (
-              <div key={index} className="mb-2 flex gap-3">
-                <span className="text-slate-500 flex-shrink-0">
-                  [{log.timestamp}]
-                </span>
-                <span
-                  className={
-                    log.type === 'success'
-                      ? 'text-green-400'
-                      : log.type === 'error'
-                      ? 'text-red-400'
-                      : 'text-slate-300'
-                  }
-                >
-                  {log.message}
-                </span>
-              </div>
-            ))}
+        <div className="h-[500px] bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-inner">
+          <div className="bg-slate-800 px-4 py-2 flex items-center gap-2 border-b border-slate-700">
+            <Terminal className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-medium text-slate-300">Agent Terminal</span>
+          </div>
+          <div className="p-4 h-[calc(100%-40px)]">
+            <AgentTerminal logs={logs} />
           </div>
         </div>
       </div>

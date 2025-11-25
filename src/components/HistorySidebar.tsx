@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Clock, ChevronRight } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 interface HistoryItem {
   id: string;
@@ -13,27 +14,6 @@ interface HistorySidebarProps {
   onClose: () => void;
   onSelectHistory: (item: HistoryItem) => void;
 }
-
-const sampleHistory: HistoryItem[] = [
-  {
-    id: 'orbit-1',
-    prompt: 'Build an e-commerce site with user authentication, product catalog, shopping cart, and payment integration',
-    archetype: 'E-commerce Platform',
-    created_at: '2025-11-22T10:30:00Z',
-  },
-  {
-    id: 'orbit-2',
-    prompt: 'Create a machine learning pipeline with data ingestion and model training',
-    archetype: 'ML Pipeline',
-    created_at: '2025-11-21T15:45:00Z',
-  },
-  {
-    id: 'orbit-3',
-    prompt: 'Design a RESTful microservice API with authentication and rate limiting',
-    archetype: 'Microservice API',
-    created_at: '2025-11-20T09:15:00Z',
-  },
-];
 
 export default function HistorySidebar({
   isOpen,
@@ -51,9 +31,19 @@ export default function HistorySidebar({
 
   const loadHistory = async () => {
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setHistory(sampleHistory);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from('orbits')
+        .select('id, prompt, archetype, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setHistory(data || []);
+    } catch (error) {
+      console.error('Error loading history:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -85,9 +75,8 @@ export default function HistorySidebar({
       />
 
       <div
-        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`fixed top-0 right-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div className="flex items-center gap-2">
@@ -130,7 +119,7 @@ export default function HistorySidebar({
                 >
                   <div className="flex items-start justify-between mb-2">
                     <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                      {item.archetype}
+                      {item.archetype || 'Unknown'}
                     </span>
                     <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-colors" />
                   </div>
