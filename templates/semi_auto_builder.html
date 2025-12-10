@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto" x-data="{ 
+    step: '{{ step }}',
+    loading: false,
+    submitForm() {
+        this.loading = true;
+        document.getElementById('builder-form').submit();
+    }
+}">
+    <!-- Stepper -->
+    <div class="mb-12">
+        <div class="flex items-center justify-between relative">
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-800 z-0 rounded-full"></div>
+
+            <!-- Step 1 -->
+            <div class="relative z-10 flex flex-col items-center gap-2">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all shadow-lg shadow-black/50"
+                    :class="step === 'requirements' ? 'bg-purple-600 text-white ring-4 ring-purple-900/50' : 'bg-slate-800 border-2 border-slate-700 text-slate-500'">
+                    1
+                </div>
+                <span class="text-sm font-medium"
+                    :class="step === 'requirements' ? 'text-purple-400' : 'text-slate-600'">Requirements</span>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="relative z-10 flex flex-col items-center gap-2">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all shadow-lg shadow-black/50"
+                    :class="step === 'architecture' ? 'bg-purple-600 text-white ring-4 ring-purple-900/50' : (step === 'implementation' ? 'bg-green-600 text-white' : 'bg-slate-800 border-2 border-slate-700 text-slate-500')">
+                    2
+                </div>
+                <span class="text-sm font-medium"
+                    :class="step === 'architecture' ? 'text-purple-400' : 'text-slate-600'">Architecture</span>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="relative z-10 flex flex-col items-center gap-2">
+                <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all shadow-lg shadow-black/50"
+                    :class="step === 'implementation' ? 'bg-purple-600 text-white ring-4 ring-purple-900/50' : 'bg-slate-800 border-2 border-slate-700 text-slate-500'">
+                    3
+                </div>
+                <span class="text-sm font-medium"
+                    :class="step === 'implementation' ? 'text-purple-400' : 'text-slate-600'">Implementation</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="glass-panel rounded-2xl p-8 border border-white/10 shadow-2xl relative overflow-hidden">
+
+        <!-- Loading Overlay -->
+        <div x-show="loading"
+            class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center"
+            style="display: none;">
+            <div class="w-16 h-16 border-4 border-purple-500/30 border-t-purple-500 rounded-full animate-spin mb-4">
+            </div>
+            <p class="text-purple-400 font-medium animate-pulse">AI is thinking...</p>
+        </div>
+
+        <form id="builder-form" method="post" action="{% url 'semi_auto_next' orbit.id %}" class="space-y-8">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="{{ step }}">
+
+            <!-- Step 1: Requirements -->
+            {% if step == 'requirements' %}
+            <div>
+                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="file-text" class="w-6 h-6 text-purple-500"></i>
+                    Refine Requirements
+                </h2>
+                <p class="text-slate-400 mb-6">Review and refine the initial requirements before proceeding to
+                    architecture design.</p>
+
+                <div class="bg-black/20 p-6 rounded-xl border border-white/5">
+                    <label class="block text-sm font-semibold text-slate-300 mb-2">Project Requirements</label>
+                    <textarea name="prompt" rows="10"
+                        class="w-full bg-slate-900 border border-slate-700 rounded-lg p-4 text-slate-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all leading-relaxed placeholder-slate-600">{{ orbit.prompt }}</textarea>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Step 2: Architecture & Tools -->
+            {% if step == 'architecture' %}
+            <div x-data="toolSelector('{{ orbit.id }}')">
+                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                    <i data-lucide="layers" class="w-6 h-6 text-purple-500"></i>
+                    Architecture Review
+                </h2>
+                <p class="text-slate-400 mb-6">AI has proposed the following architecture. Adjust tools as needed.</p>
+
+                <div class="space-y-6">
+                    <!-- Archetype -->
+                    <div class="bg-black/20 p-6 rounded-xl border border-white/5">
+                        <label class="block text-sm font-semibold text-slate-300 mb-3">Archetype</label>
+                        <input type="text" name="archetype" value="{{ orbit.archetype }}"
+                            class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-slate-200 font-medium placeholder-slate-600">
+                    </div>
+
+                    <!-- Tool Selector Component -->
+                    <div class="bg-black/20 p-6 rounded-xl border border-white/5">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="block text-sm font-semibold text-slate-300">Technology Stack</label>
+
+                            <!-- Conflict Banner -->
+                            <div x-show="validation.errors.length > 0"
+                                class="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-xs font-medium border border-red-500/20 flex items-center gap-2"
+                                style="display: none;">
+                                <i data-lucide="alert-circle" class="w-3 h-3"></i>
+                                <span x-text="validation.errors[0]"></span>
+                            </div>
+                        </div>
+
+                        <!-- Grid -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <template x-for="tool in tools" :key="tool.id">
+                                <div @click="toggleTool(tool.id)"
+                                    class="relative p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col items-center gap-2 group"
+                                    :class="isSelected(tool.id) ? 'bg-purple-900/20 border-purple-500 shadow-md shadow-purple-900/20' : 'bg-slate-900 border-slate-700 hover:border-slate-500'">
+
+                                    <!-- Recommended Badge -->
+                                    <div x-show="tool.isRecommended"
+                                        class="absolute -top-2 -right-2 bg-green-900/50 text-green-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-500/50 shadow-sm">
+                                        AI REC
+                                    </div>
+
+                                    <!-- Auto-selected Badge -->
+                                    <div x-show="isAutoSelected(id)"
+                                        class="absolute -top-2 -left-2 bg-blue-900/50 text-blue-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-500/50 shadow-sm"
+                                        style="display: none;">
+                                        REQ
+                                    </div>
+
+                                    <!-- Icon Placeholder -->
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold"
+                                        :class="isSelected(tool.id) ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'">
+                                        <span x-text="tool.name.substring(0, 2)"></span>
+                                    </div>
+
+                                    <div class="text-center">
+                                        <div class="text-sm font-bold text-slate-200" x-text="tool.name"></div>
+                                        <div class="text-[10px] text-slate-500 uppercase tracking-wider"
+                                            x-text="tool.category"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Step 3: Implementation -->
+            {% if step == 'implementation' %}
+            <div class="text-center py-12">
+                <div
+                    class="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500 border border-green-500/20 animate-pulse">
+                    <i data-lucide="check" class="w-10 h-10"></i>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-4">Ready to Build!</h2>
+                <p class="text-slate-400 max-w-md mx-auto mb-8">
+                    Requirements and architecture are locked in. Click below to generate the final code.
+                </p>
+            </div>
+            {% endif %}
+            <!-- Actions -->
+            <div class="flex justify-between pt-6 border-t border-white/10">
+                <button type="submit" name="action" value="back"
+                    class="px-6 py-2 text-slate-400 hover:text-white font-medium transition-colors {% if step == 'requirements' %}invisible{% endif %}">
+                    <i data-lucide="arrow-left" class="w-4 h-4 inline mr-2"></i>
+                    Back
+                </button>
+                <button type="submit" name="action" value="next" @click="loading = true"
+                    class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-medium shadow-lg shadow-blue-900/30 transition-all flex items-center gap-2 hover:scale-105">
+                    <span>{% if step == 'implementation' %}Generate Code{% else %}Next Step{% endif %}</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function toolSelector(orbitId) {
+        return {
+            orbitId: orbitId,
+            tools: [],
+            selectedIds: [],
+            autoSelectedIds: [],
+            validation: { isValid: true, errors: [] },
+
+            async init() {
+                // Fetch recommended tools based on the current orbit context (archetype keywords)
+                const keywords = '{{ orbit.archetype }}'.toLowerCase().split(' ');
+                const params = new URLSearchParams();
+                keywords.forEach(k => params.append('keywords', k));
+
+                try {
+                    // FIXED: Correct API path
+                    const response = await fetch(`/orbits/api/tools/recommend/?${params.toString()}`);
+                    const data = await response.json();
+                    this.tools = data.tools;
+
+                    // Pre-select recommended tools
+                    this.selectedIds = this.tools.filter(t => t.isRecommended).map(t => t.id);
+                    await this.validate();
+                } catch (e) {
+                    console.error("Failed to load tools", e);
+                }
+            },
+
+            isSelected(id) {
+                return this.selectedIds.includes(id);
+            },
+
+            isAutoSelected(id) {
+                return this.autoSelectedIds.includes(id);
+            },
+
+            async toggleTool(id) {
+                if (this.isSelected(id)) {
+                    // Start deselect
+                    if (this.isAutoSelected(id)) return; // Prevent deselecting required deps for now (simple logic)
+                    this.selectedIds = this.selectedIds.filter(selectedId => selectedId !== id);
+                } else {
+                    this.selectedIds.push(id);
+                }
+
+                await this.validate();
+            },
+
+            async validate() {
+                try {
+                    // FIXED: Correct API path
+                    const response = await fetch('/orbits/api/tools/validate/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({ selectedToolIds: this.selectedIds })
+                    });
+
+                    const data = await response.json();
+                    this.validation = { isValid: data.isValid, errors: data.errors };
+                    this.autoSelectedIds = data.autoSelected;
+                    // Merge auto-selected into final view (union)
+                    this.selectedIds = [...new Set([...this.selectedIds, ...data.autoSelected])];
+
+                    // Save to backend silently
+                    if (data.isValid) {
+                        this.save();
+                    }
+                } catch (e) {
+                    console.error("Validation failed", e);
+                }
+            },
+
+            async save() {
+                // FIXED: Correct API path
+                await fetch('/orbits/api/tools/save/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ orbitId: this.orbitId, selectedToolIds: this.selectedIds })
+                });
+            }
+        }
+    }
+</script>
+{% endblock %}

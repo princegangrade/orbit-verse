@@ -1,0 +1,64 @@
+<div class="h-full flex flex-col bg-slate-900/50">
+    <!-- Header -->
+    <div class="px-6 py-4 border-b border-slate-700 flex items-center justify-between bg-slate-900/80 backdrop-blur-sm sticky top-0 z-10">
+        <h3 class="font-bold text-slate-100">Orbit History</h3>
+        <!-- Close button: Sets parent Alpine variable historyOpen to false -->
+        <button @click="historyOpen = false" class="text-slate-400 hover:text-white transition-colors">
+            <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+    </div>
+
+    <!-- Scrollable List -->
+    <div class="flex-1 overflow-y-auto p-4 space-y-3">
+        {% if orbits %}
+            {% for orbit in orbits %}
+            <a href="{% if orbit.status == 'completed' %}{% url 'orbit_results' orbit.id %}{% elif orbit.status == 'processing' %}{% url 'orbit_progress' orbit.id %}{% else %}#{% endif %}"
+                class="block bg-slate-800/50 p-4 rounded-xl border border-slate-700 shadow-sm hover:shadow-lg hover:border-blue-500/50 hover:bg-slate-800 transition-all group">
+                <div class="flex items-start gap-3">
+                    <!-- Status Icon -->
+                    <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center mt-1
+                        {% if orbit.status == 'completed' %}bg-green-500/10 text-green-400
+                        {% elif orbit.status == 'failed' %}bg-red-500/10 text-red-400
+                        {% else %}bg-blue-500/10 text-blue-400{% endif %}">
+                        <i data-lucide="{% if orbit.status == 'completed' %}check{% elif orbit.status == 'failed' %}x{% else %}loader-2{% endif %}"
+                            class="w-4 h-4 {% if orbit.status == 'processing' %}animate-spin{% endif %}"></i>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="font-medium text-slate-200 truncate group-hover:text-blue-400 transition-colors">
+                            {{ orbit.prompt }}
+                        </div>
+                        <div class="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                            <!-- Time: Using timesince to avoid dependency errors -->
+                            <span>{{ orbit.created_at|timesince }} ago</span>
+                            <span>•</span>
+                            <span class="capitalize">{{ orbit.status }}</span>
+                            {% if orbit.archetype %}
+                            <span>•</span>
+                            <span class="bg-slate-700 px-1.5 py-0.5 rounded text-xs text-slate-300">{{ orbit.archetype }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        {% else %}
+            <!-- Empty State -->
+            <div class="text-center py-12 text-slate-500">
+                <div class="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="history" class="w-6 h-6 text-slate-600"></i>
+                </div>
+                <p class="text-sm">No history yet.</p>
+                <a href="{% url 'prompt' %}" class="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-block">Start a new project</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Re-initialize icons because this content is loaded dynamically via HTMX
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+</script>

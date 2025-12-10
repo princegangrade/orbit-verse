@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col justify-center" x-data="progressViewer()">
+
+    <!-- Status Card -->
+    <div class="glass rounded-2xl p-8 border border-white/20 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+
+        <!-- Status Header -->
+        <div class="mb-8">
+            <a href="/"
+                class="inline-flex items-center gap-2 text-slate-500 hover:text-white mb-4 transition-colors text-sm font-medium">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Dashboard
+            </a>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="relative">
+                        <div
+                            class="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center text-white relative z-10">
+                            <i data-lucide="loader-2" class="w-6 h-6 animate-spin"></i>
+                        </div>
+                        <div class="absolute inset-0 bg-blue-500 blur-xl opacity-50 animate-pulse"></div>
+                    </div>
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                            Building Your Orbit
+                            <span class="inline-flex gap-1">
+                                <span class="w-1 h-1 bg-slate-900 rounded-full animate-bounce"></span>
+                                <span class="w-1 h-1 bg-slate-900 rounded-full animate-bounce delay-100"></span>
+                                <span class="w-1 h-1 bg-slate-900 rounded-full animate-bounce delay-200"></span>
+                            </span>
+                        </h2>
+                        <p class="text-slate-500 font-medium ml-1">AI Agent is architecting your solution</p>
+                    </div>
+                </div>
+
+                <div class="text-right">
+                    <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</div>
+                    <div
+                        class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold uppercase tracking-wider animate-pulse border border-blue-200">
+                        {{ orbit.status }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Window -->
+        <div
+            class="bg-slate-900 rounded-xl overflow-hidden shadow-2xl border border-slate-700 font-mono text-sm relative">
+            <!-- Terminal Header -->
+            <div class="bg-slate-800 px-4 py-2 flex items-center gap-2 border-b border-slate-700">
+                <div class="flex gap-1.5">
+                    <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                </div>
+                <div class="flex-grow text-center text-slate-400 text-xs">agent-cli — v1.0.4</div>
+            </div>
+
+            <!-- Terminal Body -->
+            <div class="h-64 p-4 overflow-y-auto custom-scrollbar" id="terminal-output">
+                <template x-for="log in logs" :key="log.id">
+                    <div class="mb-1 flex gap-2 font-mono">
+                        <span class="text-slate-500 select-none" x-text="log.time"></span>
+                        <span :class="log.color || 'text-slate-300'">
+                            <span class="font-bold mr-2" x-show="log.prefix" x-text="log.prefix"></span>
+                            <span x-text="log.message"></span>
+                        </span>
+                    </div>
+                </template>
+                <div class="flex gap-2 animate-pulse mt-2" x-show="!completed">
+                    <span class="text-blue-500">➜</span>
+                    <span class="text-slate-300">_</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="mt-8">
+            <div class="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                <span>Progress</span>
+                <span x-text="progress + '%'"></span>
+            </div>
+            <div class="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 ease-out"
+                    :style="`width: ${progress}%`"></div>
+            </div>
+        </div>
+
+        <!-- Failure State (Hidden by default) -->
+        {% if orbit.status == 'failed' %}
+        <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+            <div class="p-2 bg-red-100 rounded-lg text-red-600">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-red-900 text-sm">Build Failed</h3>
+                <p class="text-red-700 text-xs mt-1">{{ orbit.artifacts.error }}</p>
+                <a href="{% url 'prompt' %}"
+                    class="inline-block mt-3 text-xs font-bold text-red-800 hover:underline">Try Again →</a>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<script>
+    function progressViewer() {
+        return {
+            logs: [],
+            progress: 0,
+            completed: false,
+            orbitId: "{{ orbit.id }}",
+            status: "{{ orbit.status }}",
+
+            init() {
+                this.addLog('Initializing Orbit CLI...', 'text-blue-400', 'INIT');
+
+                if (this.status === 'failed') {
+                    this.progress = 100;
+                    this.addLog('Process failed.', 'text-red-500', 'ERROR');
+                    return;
+                }
+
+                if (this.status === 'completed') {
+                    this.progress = 100;
+                    this.completed = true;
+                    setTimeout(() => window.location.href = "{% url 'orbit_results' orbit.id %}", 1000);
+                    return;
+                }
+
+                // Simulate progress logs
+                this.startSimulation();
+
+                // Poll for real completion
+                this.pollStatus();
+            },
+
+            addLog(message, color = 'text-slate-300', prefix = 'info') {
+                const now = new Date();
+                const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+                this.logs.push({
+                    id: Date.now(),
+                    time: timeStr,
+                    message: message,
+                    color: color,
+                    prefix: prefix
+                });
+
+                // Auto-scroll
+                this.$nextTick(() => {
+                    const el = document.getElementById('terminal-output');
+                    if (el) el.scrollTop = el.scrollHeight;
+                });
+            },
+
+            startSimulation() {
+                const steps = [
+                    { msg: 'Analyzing prompt requirements...', delay: 800, p: 10 },
+                    { msg: 'Identifying architectural patterns...', delay: 1500, p: 20 },
+                    { msg: 'Selecting optimal tech stack (React + Vite)...', delay: 2200, p: 30 },
+                    { msg: 'Initializing virtual environment...', delay: 3000, p: 40 },
+                    { msg: 'Scaffolding project structure...', delay: 3800, p: 45 },
+                    { msg: 'Generating package.json...', delay: 4200, p: 50, color: 'text-green-400', prefix: 'CREATE' },
+                    { msg: 'Generating vite.config.ts...', delay: 4500, p: 55, color: 'text-green-400', prefix: 'CREATE' },
+                    { msg: 'Generating src/main.tsx...', delay: 4800, p: 60, color: 'text-green-400', prefix: 'CREATE' },
+                    { msg: 'Generating src/index.css...', delay: 5100, p: 65, color: 'text-green-400', prefix: 'CREATE' },
+                    { msg: 'Generating src/App.tsx...', delay: 5500, p: 75, color: 'text-green-400', prefix: 'CREATE' },
+                    { msg: 'Checking for syntax errors...', delay: 6500, p: 85 },
+                    { msg: 'Validating component imports...', delay: 7000, p: 90 },
+                    { msg: 'Finalizing build artifacts...', delay: 8000, p: 95 },
+                ];
+
+                steps.forEach(step => {
+                    setTimeout(() => {
+                        if (this.completed) return; // Stop if already done
+                        this.addLog(step.msg, step.color, step.prefix);
+                        this.progress = Math.max(this.progress, step.p);
+                    }, step.delay);
+                });
+            },
+
+            pollStatus() {
+                const interval = setInterval(() => {
+                    fetch(window.location.href)
+                        .then(res => res.text())
+                        .then(html => {
+                            // Simple parsing to check status
+                            // Ideally, we'd have a JSON API for status, but this works for simple view polling
+                            if (html.includes('completed')) {
+                                clearInterval(interval);
+                                this.progress = 100;
+                                this.completed = true;
+                                this.addLog('Build completed successfully!', 'text-green-400', 'SUCCESS');
+                                this.addLog('Redirecting to IDE...', 'text-blue-400');
+                                setTimeout(() => window.location.href = "{% url 'orbit_results' orbit.id %}", 1000);
+                            } else if (html.includes('failed')) {
+                                clearInterval(interval);
+                                location.reload(); // Reload to show error state
+                            }
+                        });
+                }, 2000);
+            }
+        }
+    }
+</script>
+
+<style>
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #1e293b;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #475569;
+        border-radius: 3px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+</style>
+{% endblock %}

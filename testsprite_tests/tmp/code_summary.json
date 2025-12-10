@@ -1,0 +1,762 @@
+{
+  "tech_stack": [
+    "Python",
+    "Django",
+    "Django REST Framework",
+    "SQLite",
+    "PostgreSQL",
+    "Redis",
+    "Celery",
+    "Google Gemini AI",
+    "Gunicorn"
+  ],
+  "features": [
+    {
+      "name": "User Authentication",
+      "description": "User registration, login, logout, and user management API",
+      "files": [
+        "apps/users/views.py",
+        "apps/users/urls.py",
+        "apps/users/models.py",
+        "apps/users/serializers.py"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "User Authentication API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/auth/register/": {
+            "post": {
+              "summary": "Register a new user",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/x-www-form-urlencoded": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "username": {"type": "string"},
+                        "email": {"type": "string"},
+                        "password": {"type": "string"}
+                      },
+                      "required": ["username", "email", "password"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Registration successful"},
+                "400": {"description": "Username taken or validation error"}
+              }
+            }
+          },
+          "/auth/login/": {
+            "post": {
+              "summary": "Login user",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/x-www-form-urlencoded": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "username": {"type": "string"},
+                        "password": {"type": "string"}
+                      },
+                      "required": ["username", "password"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Login successful"},
+                "401": {"description": "Invalid credentials"}
+              }
+            }
+          },
+          "/auth/logout/": {
+            "get": {
+              "summary": "Logout user",
+              "responses": {
+                "200": {"description": "Logout successful"}
+              }
+            }
+          },
+          "/auth/api/": {
+            "get": {
+              "summary": "List users (authenticated)",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "List of users"}
+              }
+            },
+            "post": {
+              "summary": "Create user (authenticated)",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "201": {"description": "User created"}
+              }
+            }
+          },
+          "/auth/api/{id}/": {
+            "get": {
+              "summary": "Get user by ID",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "User details"}
+              }
+            }
+          },
+          "/auth/api/ai/suggest-role/": {
+            "get": {
+              "summary": "AI-suggested role for user",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Suggested role"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Orbits Management",
+      "description": "Create, manage, and generate projects (orbits) with AI assistance",
+      "files": [
+        "apps/orbits/views.py",
+        "apps/orbits/urls.py",
+        "apps/orbits/models.py",
+        "apps/orbits/serializers.py",
+        "apps/orbits/tasks.py"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Orbits API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/orbits/api/": {
+            "get": {
+              "summary": "List user's orbits",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "List of orbits"}
+              }
+            },
+            "post": {
+              "summary": "Create a new orbit",
+              "security": [{"sessionAuth": []}],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "prompt": {"type": "string"},
+                        "status": {"type": "string"},
+                        "archetype": {"type": "string"},
+                        "tools": {"type": "array", "items": {"type": "string"}}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "201": {"description": "Orbit created"}
+              }
+            }
+          },
+          "/orbits/api/{id}/": {
+            "get": {
+              "summary": "Get orbit by ID",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Orbit details"}
+              }
+            },
+            "put": {
+              "summary": "Update orbit",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Orbit updated"}
+              }
+            },
+            "delete": {
+              "summary": "Delete orbit",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "204": {"description": "Orbit deleted"}
+              }
+            }
+          },
+          "/orbits/api/{id}/generate/": {
+            "post": {
+              "summary": "Trigger project generation for orbit",
+              "security": [{"sessionAuth": []}],
+              "requestBody": {
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "context": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "202": {"description": "Generation started"}
+              }
+            }
+          },
+          "/orbits/api/ai/analyze/": {
+            "post": {
+              "summary": "Analyze prompt using AI",
+              "security": [{"sessionAuth": []}],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "prompt": {"type": "string"}
+                      },
+                      "required": ["prompt"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Analysis result"},
+                "400": {"description": "Prompt required"},
+                "500": {"description": "Analysis error"}
+              }
+            }
+          },
+          "/orbits/prompt/": {
+            "get": {
+              "summary": "Prompt input page",
+              "responses": {
+                "200": {"description": "Prompt page"}
+              }
+            }
+          },
+          "/orbits/create/": {
+            "post": {
+              "summary": "Create orbit from prompt",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/x-www-form-urlencoded": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "prompt": {"type": "string"}
+                      },
+                      "required": ["prompt"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "302": {"description": "Redirect to progress page"}
+              }
+            }
+          },
+          "/orbits/{orbit_id}/progress/": {
+            "get": {
+              "summary": "View orbit generation progress",
+              "responses": {
+                "200": {"description": "Progress page"}
+              }
+            }
+          },
+          "/orbits/{orbit_id}/results/": {
+            "get": {
+              "summary": "View orbit results",
+              "responses": {
+                "200": {"description": "Results page"}
+              }
+            }
+          },
+          "/orbits/{orbit_id}/download/": {
+            "get": {
+              "summary": "Download generated project as ZIP",
+              "responses": {
+                "200": {"description": "ZIP file"},
+                "404": {"description": "No files generated"}
+              }
+            }
+          },
+          "/orbits/{orbit_id}/push/": {
+            "get": {
+              "summary": "Push orbit to GitHub",
+              "responses": {
+                "302": {"description": "Redirect to results"}
+              }
+            }
+          },
+          "/orbits/create/semi-auto/": {
+            "get": {
+              "summary": "Semi-auto setup page",
+              "responses": {
+                "200": {"description": "Setup page"}
+              }
+            },
+            "post": {
+              "summary": "Create semi-auto orbit",
+              "requestBody": {
+                "content": {
+                  "application/x-www-form-urlencoded": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "name": {"type": "string"},
+                        "prompt": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "302": {"description": "Redirect to builder"}
+              }
+            }
+          },
+          "/orbits/{orbit_id}/builder/": {
+            "get": {
+              "summary": "Semi-auto builder page",
+              "responses": {
+                "200": {"description": "Builder page"}
+              }
+            }
+          },
+          "/orbits/{orbit_id}/builder/next/": {
+            "post": {
+              "summary": "Advance to next step in semi-auto builder",
+              "requestBody": {
+                "content": {
+                  "application/x-www-form-urlencoded": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "step": {"type": "string"},
+                        "prompt": {"type": "string"},
+                        "archetype": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "302": {"description": "Redirect"}
+              }
+            }
+          },
+          "/orbits/history/": {
+            "get": {
+              "summary": "List orbit history",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "History list"}
+              }
+            }
+          },
+          "/orbits/api/tools/recommend/": {
+            "get": {
+              "summary": "Get tool recommendations",
+              "parameters": [
+                {
+                  "name": "type",
+                  "in": "query",
+                  "schema": {"type": "string"}
+                },
+                {
+                  "name": "keywords",
+                  "in": "query",
+                  "schema": {"type": "array", "items": {"type": "string"}}
+                }
+              ],
+              "responses": {
+                "200": {"description": "Tool recommendations"}
+              }
+            }
+          },
+          "/orbits/api/tools/validate/": {
+            "post": {
+              "summary": "Validate selected tools",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "selectedToolIds": {
+                          "type": "array",
+                          "items": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Validation result"}
+              }
+            }
+          },
+          "/orbits/api/tools/save/": {
+            "post": {
+              "summary": "Save selected tools to orbit",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "orbitId": {"type": "string"},
+                        "selectedToolIds": {
+                          "type": "array",
+                          "items": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Tools saved"},
+                "404": {"description": "Orbit not found"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "AI Services",
+      "description": "AI-powered prompt analysis and chat functionality using Google Gemini",
+      "files": [
+        "apps/ai/views.py",
+        "apps/ai/urls.py",
+        "apps/ai/chat_views.py",
+        "apps/ai/gemini_client.py"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "AI Services API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/api/ai/analyze-prompt/": {
+            "post": {
+              "summary": "Analyze prompt using AI",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "prompt": {"type": "string"}
+                      },
+                      "required": ["prompt"]
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Analysis result"},
+                "400": {"description": "Prompt required"},
+                "500": {"description": "Analysis error"}
+              }
+            }
+          },
+          "/api/ai/chat/": {
+            "post": {
+              "summary": "Chat with AI agent",
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "message": {"type": "string"},
+                        "conversation_id": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "200": {"description": "Chat response"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Pipelines Management",
+      "description": "Create and manage CI/CD pipelines with AI optimization and validation",
+      "files": [
+        "apps/pipelines/views.py",
+        "apps/pipelines/urls.py",
+        "apps/pipelines/models.py",
+        "apps/pipelines/serializers.py"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Pipelines API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/pipelines/": {
+            "get": {
+              "summary": "Manual builder page",
+              "responses": {
+                "200": {"description": "Builder page"}
+              }
+            }
+          },
+          "/pipelines/api/": {
+            "get": {
+              "summary": "List user's pipelines",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "List of pipelines"}
+              }
+            },
+            "post": {
+              "summary": "Create a new pipeline",
+              "security": [{"sessionAuth": []}],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "name": {"type": "string"},
+                        "config": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "201": {"description": "Pipeline created"}
+              }
+            }
+          },
+          "/pipelines/api/{id}/": {
+            "get": {
+              "summary": "Get pipeline by ID",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Pipeline details"}
+              }
+            },
+            "put": {
+              "summary": "Update pipeline",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Pipeline updated"}
+              }
+            },
+            "delete": {
+              "summary": "Delete pipeline",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "204": {"description": "Pipeline deleted"}
+              }
+            }
+          },
+          "/pipelines/api/{id}/ai/optimize/": {
+            "post": {
+              "summary": "AI optimization of pipeline",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Optimization result"}
+              }
+            }
+          },
+          "/pipelines/api/{id}/ai/validate/": {
+            "post": {
+              "summary": "AI validation of pipeline",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Validation result"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "SDLC Notes",
+      "description": "Manage SDLC (Software Development Life Cycle) notes",
+      "files": [
+        "apps/sdlc/views.py",
+        "apps/sdlc/urls.py",
+        "apps/sdlc/models.py",
+        "apps/sdlc/serializers.py"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "SDLC Notes API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/api/sdlc/notes/": {
+            "get": {
+              "summary": "List user's SDLC notes",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "List of notes"}
+              }
+            },
+            "post": {
+              "summary": "Create a new SDLC note",
+              "security": [{"sessionAuth": []}],
+              "requestBody": {
+                "required": true,
+                "content": {
+                  "application/json": {
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "title": {"type": "string"},
+                        "content": {"type": "string"},
+                        "phase": {"type": "string"}
+                      }
+                    }
+                  }
+                }
+              },
+              "responses": {
+                "201": {"description": "Note created"}
+              }
+            }
+          },
+          "/api/sdlc/notes/{id}/": {
+            "get": {
+              "summary": "Get SDLC note by ID",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Note details"}
+              }
+            },
+            "put": {
+              "summary": "Update SDLC note",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "200": {"description": "Note updated"}
+              }
+            },
+            "delete": {
+              "summary": "Delete SDLC note",
+              "security": [{"sessionAuth": []}],
+              "responses": {
+                "204": {"description": "Note deleted"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "GitHub Integration",
+      "description": "GitHub OAuth login and push functionality",
+      "files": [
+        "apps/github/views.py",
+        "apps/github/urls.py"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "GitHub Integration API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/github/login/": {
+            "get": {
+              "summary": "Initiate GitHub OAuth login",
+              "responses": {
+                "302": {"description": "Redirect to GitHub"}
+              }
+            }
+          },
+          "/github/callback/": {
+            "get": {
+              "summary": "GitHub OAuth callback",
+              "parameters": [
+                {
+                  "name": "code",
+                  "in": "query",
+                  "schema": {"type": "string"}
+                }
+              ],
+              "responses": {
+                "302": {"description": "Redirect to home"}
+              }
+            }
+          },
+          "/github/push/{orbit_id}/": {
+            "get": {
+              "summary": "Push orbit to GitHub",
+              "responses": {
+                "302": {"description": "Redirect to results"}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Dashboard",
+      "description": "Main dashboard view",
+      "files": [
+        "apps/users/dashboard_views.py",
+        "templates/dashboard.html"
+      ],
+      "api_doc": {
+        "openapi": "3.0.0",
+        "info": {
+          "title": "Dashboard API",
+          "version": "1.0.0"
+        },
+        "paths": {
+          "/": {
+            "get": {
+              "summary": "Dashboard home page",
+              "responses": {
+                "200": {"description": "Dashboard page"}
+              }
+            }
+          },
+          "/welcome/": {
+            "get": {
+              "summary": "Welcome page",
+              "responses": {
+                "200": {"description": "Welcome page"}
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}
